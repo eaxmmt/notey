@@ -85,8 +85,6 @@ The next decision should be whether this editing behavior feels right on your Li
 - `examples/Welcome.md`: the bundled demo note.
 - `tests/smoke.rs`: display-free end-to-end UI scenarios using Rune's scripted input.
 
-No explanatory comments were added to the source; the design is explained here instead.
-
 ## Checks
 
 ```sh
@@ -97,7 +95,7 @@ cargo build
 cargo test --test smoke -- --ignored
 ```
 
-The Rust tests cover source ranges, syntax concealment/reveal, exact-byte file round trips, external changes, deleted originals, existing destinations, symlinks, size/encoding validation, typing/undo, mode switching, and unsaved-change cancellation.
+The Rust tests cover source ranges, syntax concealment/reveal, UTF-8 selection boundaries, exact-byte file round trips, file permissions, failed-save state, external changes, deleted originals, existing destinations, symlinks, size/encoding validation, typing/undo, mode switching, and unsaved-change cancellation.
 
 The Rust smoke test covers seven scenarios: saving through the real UI handlers and scripted file chooser, reopening, cancelling a destructive action, refusing an existing destination, refusing a copy over the original, saving a copy, and rejecting named pipes. It uses only temporary files. It is ignored by default because GPU-backed headless runs require an appropriate graphics driver; they do not require a visible window. Run it explicitly with the command above.
 

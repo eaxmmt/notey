@@ -110,9 +110,19 @@ impl Document {
         } else {
             temp.persist_noclobber(&target).map_err(|e| e.error)?;
         }
+        File::open(parent)
+            .and_then(|directory| directory.sync_all())
+            .map_err(|error| {
+                io::Error::new(
+                    error.kind(),
+                    format!(
+                        "The file was written, but its directory could not be synced: {error}. \
+                         Durability is uncertain; your draft is still in memory. Save a copy to keep it."
+                    ),
+                )
+            })?;
         self.path = Some(target);
         self.saved = text.to_owned();
-        File::open(parent)?.sync_all()?;
         Ok(())
     }
 }
@@ -154,6 +164,40 @@ mod tests {
         assert_eq!(loaded, source);
         doc.save(&(loaded + "\nnew"), None).unwrap();
         assert_eq!(fs::read_to_string(path).unwrap(), format!("{source}\nnew"));
+    }
+
+    #[test]
+    fn failed_saves_preserve_the_document_state() {
+        let dir = tempfile::tempdir().unwrap();
+        let original = dir.path().join("original.md");
+        fs::write(&original, "original").unwrap();
+        let (mut doc, _) = Document::open(&original).unwrap();
+        for target in [dir.path().join("invalid.txt"), original.clone()] {
+            assert!(doc.save("draft", Some(&target)).is_err());
+            assert_eq!(doc.path.as_deref(), Some(original.as_path()));
+            assert_eq!(doc.saved, "original");
+            assert!(doc.dirty("draft"));
+        }
+        let oversized = "x".repeat(MAX_BYTES as usize + 1);
+        assert!(doc.save(&oversized, None).is_err());
+        assert_eq!(doc.saved, "original");
+        assert_eq!(fs::read_to_string(&original).unwrap(), "original");
+    }
+
+    #[test]
+    fn existing_file_permissions_survive_atomic_replacement() {
+        use std::os::unix::fs::PermissionsExt;
+
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("note.md");
+        fs::write(&path, "original").unwrap();
+        fs::set_permissions(&path, fs::Permissions::from_mode(0o640)).unwrap();
+        let (mut doc, _) = Document::open(&path).unwrap();
+        doc.save("updated", None).unwrap();
+        assert_eq!(
+            fs::metadata(&path).unwrap().permissions().mode() & 0o777,
+            0o640
+        );
     }
 
     #[test]
