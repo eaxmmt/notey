@@ -1,3 +1,14 @@
+#![forbid(unsafe_code)]
+#![cfg_attr(
+    not(test),
+    deny(
+        clippy::unwrap_used,
+        clippy::expect_used,
+        clippy::panic,
+        clippy::unreachable
+    )
+)]
+
 mod document;
 mod markdown;
 
@@ -229,7 +240,7 @@ fn view(s: &State, _: &mut Cx<State>) -> El {
         .as_ref()
         .and_then(|p| p.file_name())
         .map(|s| s.to_string_lossy().into_owned())
-        .unwrap_or("Untitled.md".into());
+        .unwrap_or_else(|| "Untitled.md".into());
     let title = if s.dirty() {
         format!("{name}  •")
     } else {
@@ -430,7 +441,7 @@ fn view(s: &State, _: &mut Cx<State>) -> El {
     root
 }
 
-fn main() {
+fn main() -> Result<(), String> {
     rune::set_app_id("folio");
     let path = rune::extra_args().first().cloned();
     let spec = AppSpec {
@@ -471,7 +482,7 @@ fn main() {
         }
         state
     })
-    .run();
+    .try_run()
 }
 
 #[cfg(test)]
@@ -494,7 +505,9 @@ mod tests {
     }
 
     fn click(rt: &mut Runtime<State>, key: &str) {
-        let (x, y) = rt.find(key).unwrap();
+        let (x, y) = rt
+            .find(key)
+            .unwrap_or_else(|| panic!("expected clickable UI element {key:?}"));
         rt.pointer_down(x, y);
         rt.pointer_up(x, y);
         rt.frame(1.0 / 60.0);

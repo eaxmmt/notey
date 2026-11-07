@@ -29,8 +29,8 @@ pub struct Decoration {
 }
 
 pub fn active_lines(source: &str, selection: (usize, usize)) -> Range<usize> {
-    let a = selection.0.min(selection.1).min(source.len());
-    let b = selection.0.max(selection.1).min(source.len());
+    let a = source.floor_char_boundary(selection.0.min(selection.1).min(source.len()));
+    let b = source.ceil_char_boundary(selection.0.max(selection.1).min(source.len()));
     let start = source[..a].rfind('\n').map_or(0, |i| i + 1);
     let end = source[b..].find('\n').map_or(source.len(), |i| b + i);
     start..end
@@ -107,13 +107,12 @@ pub fn decorations(source: &str) -> Vec<Decoration> {
             }
             Event::Start(Tag::CodeBlock(kind)) => {
                 add(range.clone(), Format::Code);
-                if matches!(kind, CodeBlockKind::Fenced(_)) {
+                if matches!(kind, CodeBlockKind::Fenced(_))
+                    && let Some(marker) = fragment.chars().next()
+                {
                     let first_end = fragment.find('\n').unwrap_or(fragment.len());
                     add(range.start..range.start + first_end, Format::Syntax);
-                    fenced_body = Some((
-                        fragment.as_bytes()[0] as char,
-                        (range.start + first_end + 1).min(range.end),
-                    ));
+                    fenced_body = Some((marker, (range.start + first_end + 1).min(range.end)));
                 }
             }
             Event::Text(_) => {
@@ -139,7 +138,7 @@ pub fn spans(source: &str, selection: (usize, usize), palette: Palette) -> Vec<S
     let active = active_lines(source, selection);
     let decorations = decorations(source);
     let mut spans = Vec::new();
-    for d in decorations.iter().filter(|d| d.format != Format::Syntax) {
+    for d in &decorations {
         let span = Span::new(d.range.start, d.range.end);
         spans.push(match d.format {
             Format::Heading(level) => span
@@ -155,7 +154,7 @@ pub fn spans(source: &str, selection: (usize, usize), palette: Palette) -> Vec<S
             Format::Code => span.mono().bg(palette.code_bg, 2.0),
             Format::Link => span.color(palette.accent).underline(palette.accent),
             Format::Quote => span.italic().color(palette.muted),
-            Format::Syntax => unreachable!(),
+            Format::Syntax => continue,
         });
     }
     for d in decorations.iter().filter(|d| d.format == Format::Syntax) {
@@ -203,6 +202,21 @@ mod tests {
     }
 
     #[test]
+    fn selection_offsets_are_clamped_to_utf8_boundaries() {
+        let source = "é\n☕\nlast";
+        assert_eq!(active_lines(source, (1, 1)), 0..2);
+        assert_eq!(active_lines(source, (4, 5)), 3..6);
+        assert_eq!(active_lines(source, (5, 1)), 0..6);
+        assert_eq!(active_lines(source, (usize::MAX, usize::MAX)), 7..11);
+        for a in 0..=source.len() + 1 {
+            for b in 0..=source.len() + 1 {
+                let range = active_lines(source, (a, b));
+                assert!(source.get(range).is_some());
+            }
+        }
+    }
+
+    #[test]
     fn code_contents_are_not_parsed_as_emphasis() {
         let ds = decorations("```md\n**literal**\n```\n");
         assert!(!ds.iter().any(|d| d.format == Format::Bold));
@@ -236,7 +250,7 @@ mod tests {
             ("````md\n```literal\n````\n", "````"),
             ("```sh\n~~~literal\n```\n", "```"),
             ("~~~\nbody\n~~~~\n", "~~~~"),
-            ("```\nbody\n  ```\t \n", "```"),
+            ("```\nbody\n  ```  \n", "```"),
             ("```\r\nbody\r\n```\r\n", "```"),
             ("```\n```", "```"),
             ("> ```md\n> body\n> ```\n", "```"),
@@ -249,6 +263,22 @@ mod tests {
             assert_eq!(syntax.len(), 2, "{source:?}: {syntax:?}");
             assert_eq!(source[syntax[1].range.clone()].trim_end(), closing);
         }
+    }
+
+    #[test]
+    fn tab_suffixed_fences_follow_the_parser_instead_of_hiding_code() {
+        // pulldown-cmark 0.13.6 only accepts spaces after a closing fence, not tabs.
+        let source = "```\nbody\n  ```\t \n";
+        assert!(
+            Parser::new(source)
+                .any(|event| { matches!(event, Event::Text(body) if body.contains("```\t")) })
+        );
+        let syntax: Vec<_> = decorations(source)
+            .into_iter()
+            .filter(|d| d.format == Format::Syntax)
+            .collect();
+        assert_eq!(syntax.len(), 1);
+        assert_eq!(&source[syntax[0].range.clone()], "```");
     }
 
     #[test]

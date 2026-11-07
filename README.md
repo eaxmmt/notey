@@ -83,7 +83,7 @@ The next decision should be whether this editing behavior feels right on your Li
 - `src/markdown.rs`: Markdown parsing, source-range decorations, and active-line syntax reveal.
 - `src/document.rs`: exact text loading, conflict checks, and atomic saving.
 - `examples/Welcome.md`: the bundled demo note.
-- `tests/smoke.py`: display-free end-to-end UI scenarios using Rune's scripted input.
+- `tests/smoke.rs`: display-free end-to-end UI scenarios using Rune's scripted input.
 
 No explanatory comments were added to the source; the design is explained here instead.
 
@@ -94,12 +94,12 @@ cargo fmt --check
 cargo clippy --all-targets -- -D warnings
 cargo test
 cargo build
-python3 tests/smoke.py
+cargo test --test smoke -- --ignored
 ```
 
 The Rust tests cover source ranges, syntax concealment/reveal, exact-byte file round trips, external changes, deleted originals, existing destinations, symlinks, size/encoding validation, typing/undo, mode switching, and unsaved-change cancellation.
 
-The smoke script tests saving through the real UI handlers and scripted file chooser, reopening, cancelling a destructive action, and refusing an existing save-copy destination. It uses only temporary files. GPU-backed headless runs require an appropriate graphics driver; they do not require a visible window.
+The Rust smoke test covers seven scenarios: saving through the real UI handlers and scripted file chooser, reopening, cancelling a destructive action, refusing an existing destination, refusing a copy over the original, saving a copy, and rejecting named pipes. It uses only temporary files. It is ignored by default because GPU-backed headless runs require an appropriate graphics driver; they do not require a visible window. Run it explicitly with the command above.
 
 To generate snapshots and an element tree:
 
