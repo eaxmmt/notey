@@ -1,6 +1,6 @@
-# Folio
+# Notey
 
-A Linux-first Markdown editor prototype built with [Rune](https://github.com/anomalyco/rune). Folio is a working name, not a settled product name.
+A Linux-first Markdown editor prototype built with [Rune](https://github.com/anomalyco/rune). Notey is a working name, not a settled product name.
 
 The Markdown string is the document. Live preview adds visual decorations; it never converts the note into a rich-text storage format. Files remain ordinary UTF-8 `.md` files.
 
@@ -54,7 +54,7 @@ Buttons provide the same app actions. Escape cancels the unsaved-change dialog. 
 
 There is deliberately no autosave yet. Ctrl+S saves an existing note; an untitled note opens the save chooser. Save copy requires a new filename and refuses to overwrite another existing file, even if the chooser allows selecting it.
 
-Before replacing an opened note, Folio checks that its contents still match the version originally opened or last saved. A detected external change or deletion blocks saving and leaves your draft in memory. Use Save copy to keep both versions. There is no live filesystem watcher or merge interface yet.
+Before replacing an opened note, Notey checks that its contents still match the version originally opened or last saved. A detected external change or deletion blocks saving and leaves your draft in memory. Use Save copy to keep both versions. There is no live filesystem watcher or merge interface yet.
 
 Writes use a temporary file beside the destination, flush its contents, and rename it into place. Existing file permissions are preserved. New-file creation refuses a pre-existing destination. Symlinks are resolved when opening a note; Save copy refuses symlink destinations.
 
@@ -62,7 +62,7 @@ The external-change checks are not a cross-process lock or a transactional compa
 
 ## Live preview: the experiment
 
-`pulldown-cmark` identifies source byte ranges. Folio maps them to Rune text decorations. Formatting markers outside active lines are transparent and use a near-zero font size; their bytes remain in the editor model. On active lines, markers return in a muted color.
+`pulldown-cmark` identifies source byte ranges. Notey maps them to Rune text decorations. Formatting markers outside active lines are transparent and use a near-zero font size; their bytes remain in the editor model. On active lines, markers return in a muted color.
 
 This proves that a Markdown-backed live editor can be built on Rune without adding a webview or rewriting the stored Markdown. It is not yet an Obsidian-equivalent editing engine:
 
@@ -105,10 +105,10 @@ To generate snapshots and an element tree:
 
 ```sh
 mkdir -p artifacts
-target/debug/folio --snap artifacts/live-preview.png --tree artifacts/live-tree.json
-target/debug/folio --scene source --snap artifacts/source.png
-target/debug/folio --scene read --snap artifacts/read.png
-target/debug/folio --scene light --snap artifacts/light.png
+target/debug/notey --snap artifacts/live-preview.png --tree artifacts/live-tree.json
+target/debug/notey --scene source --snap artifacts/source.png
+target/debug/notey --scene read --snap artifacts/read.png
+target/debug/notey --scene light --snap artifacts/light.png
 ```
 
 ## Scope
